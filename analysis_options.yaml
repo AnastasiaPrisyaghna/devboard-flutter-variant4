@@ -1,0 +1,8 @@
+analyzer:
+  errors:
+    unused_import: error
+    unused_local_variable: error
+linter:
+  rules:
+    - avoid_print
+    - prefer_const_constructors

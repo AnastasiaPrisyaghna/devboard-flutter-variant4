@@ -1,0 +1,20 @@
+name: devboard
+version: 1.0.0+1
+description: DevBoard — один застосунок для Windows і Web, індивідуальний варіант 4 (LocalePort).
+publish_to: none
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path_provider: ^2.1.4
+  web: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
