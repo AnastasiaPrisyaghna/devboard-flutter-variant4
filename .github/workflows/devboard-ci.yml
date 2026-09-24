@@ -1,0 +1,118 @@
+name: DevBoard | Windows + Web verification
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web - analyze, tests, build and real Chrome evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate the Web target
+        run: |
+          flutter --version
+          flutter config --enable-web
+          flutter create --platforms=web .
+          flutter pub get
+
+      - name: Analyze Dart and execute unit tests
+        run: |
+          python3 tools/static_audit.py
+          flutter analyze
+          flutter test
+
+      - name: Compile Web release
+        run: flutter build web --release
+
+      - name: Install browser automation
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+
+      - name: Start the built site
+        shell: bash
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory build/web > http_server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Open Flutter in real headless Chrome and inspect localStorage
+        run: python3 tools/verify_web.py
+
+      - name: Upload factual Web proof and server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devboard-web-evidence
+          path: |
+            evidence/
+            http_server.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  windows:
+    name: Windows - tests, real file I/O and Desktop build
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate the Windows target
+        shell: pwsh
+        run: |
+          flutter --version
+          flutter config --enable-windows-desktop
+          flutter create --platforms=windows .
+          flutter pub get
+
+      - name: Analyze code and test repository + real dart:io JSON storage
+        shell: pwsh
+        run: |
+          python tools/static_audit.py
+          flutter analyze
+          flutter test
+
+      - name: Compile native Windows desktop executable
+        shell: pwsh
+        run: flutter build windows --release
+
+      - name: Verify Windows executable exists and record provenance
+        shell: pwsh
+        run: |
+          $exe = 'build/windows/x64/runner/Release/devboard.exe'
+          if (-not (Test-Path $exe)) { throw "Executable not found: $exe" }
+          New-Item -ItemType Directory -Force -Path evidence | Out-Null
+          "Runner: $env:RUNNER_OS" | Out-File -Encoding utf8 evidence/windows_build_real.txt
+          "Commit: $env:GITHUB_SHA" | Out-File -Append -Encoding utf8 evidence/windows_build_real.txt
+          flutter --version | Out-File -Append -Encoding utf8 evidence/windows_build_real.txt
+          Get-Item $exe | Select-Object Name,Length,LastWriteTime | Format-List | Out-File -Append -Encoding utf8 evidence/windows_build_real.txt
+
+      - name: Upload native Windows build and proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devboard-windows-release
+          path: |
+            evidence/
+            build/windows/x64/runner/Release/
+          if-no-files-found: warn
+          retention-days: 14
