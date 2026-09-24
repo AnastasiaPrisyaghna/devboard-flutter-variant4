@@ -29,6 +29,6 @@ void main() {
 
   test('порожню нотатку не додаємо', () async {
     final repository = NoteRepository(MemoryNoteStorage());
-    expect(repository.add('   '), throwsArgumentError);
+    await expectLater(repository.add('   '), throwsArgumentError);
   });
 }

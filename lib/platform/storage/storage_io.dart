@@ -8,9 +8,16 @@ import '../../domain/ports/note_storage.dart';
 
 NoteStorage createNoteStorage() => FileNoteStorage();
 
+/// Windows: the normal location comes from path_provider.
+/// An optional directory is injected only by tests to verify real dart:io I/O
+/// without depending on a running native plugin host.
 class FileNoteStorage implements NoteStorage {
+  FileNoteStorage({Directory? testDirectory}) : _testDirectory = testDirectory;
+
+  final Directory? _testDirectory;
+
   Future<File> _file() async {
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = _testDirectory ?? await getApplicationDocumentsDirectory();
     return File('${directory.path}${Platform.pathSeparator}devboard_notes.json');
   }
 
